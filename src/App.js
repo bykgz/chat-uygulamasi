@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ref, set, onValue, push, update, remove } from "firebase/database";
 import { db } from "./firebase";
 import "./App.css";
@@ -102,7 +102,7 @@ function App() {
     }
   };
 
-  const handleDisconnect = () => {
+  const handleDisconnect = useCallback(() => {
     if (chatId) {
       // Chat'i temizle
       remove(ref(db, `chats/${chatId}`));
@@ -129,7 +129,7 @@ function App() {
     setPartnerId(null);
     setMessages([]);
     setIsLoggedIn(false);
-  };
+  }, [chatId, nickname]);
 
   useEffect(() => {
     if (chatId) {
@@ -170,7 +170,7 @@ function App() {
         chatUnsubscribe();
       };
     }
-  }, [chatId]);
+  }, [chatId, handleDisconnect]);
 
   useEffect(() => {
     if (isLoggedIn) {
