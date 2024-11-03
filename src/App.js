@@ -11,6 +11,10 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [chatId, setChatId] = useState(null);
   const [partnerId, setPartnerId] = useState(null);
+  const [isCallActive, setIsCallActive] = useState(false);
+  const [localStream, setLocalStream] = useState(null);
+  const [remoteStream, setRemoteStream] = useState(null);
+  const [peerConnection, setPeerConnection] = useState(null);
 
   const findMatch = () => {
     const waitingUsersRef = ref(db, "waitingUsers");
@@ -245,6 +249,159 @@ function App() {
     handleDisconnect();
   };
 
+  const startCall = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setLocalStream(stream);
+
+      const configuration = {
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      };
+
+      const pc = new RTCPeerConnection(configuration);
+      setPeerConnection(pc);
+
+      stream.getTracks().forEach((track) => {
+        pc.addTrack(track, stream);
+      });
+
+      pc.ontrack = (event) => {
+        setRemoteStream(event.streams[0]);
+      };
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          update(ref(db, `chats/${chatId}/callData/candidates/${nickname}`), {
+            [Date.now()]: event.candidate.toJSON(),
+          });
+        }
+      };
+
+      // Offer oluştur ve Firebase'e gönder
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      const callData = {
+        offer: {
+          type: offer.type,
+          sdp: offer.sdp,
+        },
+      };
+
+      await update(ref(db, `chats/${chatId}`), { callData });
+      setIsCallActive(true);
+    } catch (error) {
+      console.error("Arama başlatılamadı:", error);
+    }
+  };
+
+  const handleIncomingCall = async (callData) => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setLocalStream(stream);
+
+      const configuration = {
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      };
+
+      const pc = new RTCPeerConnection(configuration);
+      setPeerConnection(pc);
+
+      stream.getTracks().forEach((track) => {
+        pc.addTrack(track, stream);
+      });
+
+      pc.ontrack = (event) => {
+        setRemoteStream(event.streams[0]);
+      };
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          update(ref(db, `chats/${chatId}/callData/candidates/${nickname}`), {
+            [Date.now()]: event.candidate.toJSON(),
+          });
+        }
+      };
+
+      await pc.setRemoteDescription(new RTCSessionDescription(callData.offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      const answerData = {
+        answer: {
+          type: answer.type,
+          sdp: answer.sdp,
+        },
+      };
+
+      await update(ref(db, `chats/${chatId}/callData`), answerData);
+      setIsCallActive(true);
+    } catch (error) {
+      console.error("Arama yanıtlanamadı:", error);
+    }
+  };
+
+  const endCall = () => {
+    if (localStream) {
+      localStream.getTracks().forEach((track) => track.stop());
+    }
+    if (peerConnection) {
+      peerConnection.close();
+    }
+    setLocalStream(null);
+    setRemoteStream(null);
+    setPeerConnection(null);
+    setIsCallActive(false);
+
+    // Firebase'den arama verilerini temizle
+    update(ref(db, `chats/${chatId}`), {
+      callData: null,
+    });
+  };
+
+  useEffect(() => {
+    if (chatId && peerConnection && isCallActive) {
+      const candidatesRef = ref(db, `chats/${chatId}/callData/candidates`);
+      const unsubscribe = onValue(candidatesRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          Object.entries(data).forEach(([user, candidates]) => {
+            if (user !== nickname) {
+              Object.values(candidates).forEach((candidate) => {
+                peerConnection
+                  .addIceCandidate(new RTCIceCandidate(candidate))
+                  .catch((err) => console.error("ICE candidate error:", err));
+              });
+            }
+          });
+        }
+      });
+
+      return () => unsubscribe();
+    }
+  }, [chatId, peerConnection, isCallActive, nickname]);
+
+  useEffect(() => {
+    if (chatId) {
+      const callRef = ref(db, `chats/${chatId}/callData`);
+      const unsubscribe = onValue(callRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          if (data.offer && !isCallActive && !peerConnection) {
+            handleIncomingCall(data);
+          }
+          if (data.answer && peerConnection) {
+            peerConnection
+              .setRemoteDescription(new RTCSessionDescription(data.answer))
+              .catch((err) => console.error("Answer error:", err));
+          }
+        }
+      });
+
+      return () => unsubscribe();
+    }
+  }, [chatId, isCallActive, peerConnection]);
+
   if (!isLoggedIn) {
     return (
       <div className="App">
@@ -283,6 +440,15 @@ function App() {
           <div className="user-info">
             <span>Sen: {nickname}</span>
             {partnerId && <span>Partner: {partnerId}</span>}
+            {!isCallActive ? (
+              <button onClick={startCall} className="call-button">
+                Sesli Arama Başlat
+              </button>
+            ) : (
+              <button onClick={endCall} className="end-call-button">
+                Aramayı Sonlandır
+              </button>
+            )}
             <button onClick={handleLogout}>Çıkış</button>
           </div>
         </header>
