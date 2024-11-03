@@ -445,6 +445,26 @@ function App() {
     }
   }, [messages]);
 
+  useEffect(() => {
+    if (chatId && peerConnection) {
+      // Bağlantı durumunu dinle
+      peerConnection.onconnectionstatechange = () => {
+        console.log("Connection state:", peerConnection.connectionState);
+        if (peerConnection.connectionState === "failed") {
+          endCall();
+        }
+      };
+
+      // ICE bağlantı durumunu dinle
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log("ICE state:", peerConnection.iceConnectionState);
+        if (peerConnection.iceConnectionState === "failed") {
+          endCall();
+        }
+      };
+    }
+  }, [chatId, peerConnection]);
+
   if (!isLoggedIn) {
     return (
       <div className="App">
