@@ -318,20 +318,33 @@ function App() {
       setLocalStream(stream);
 
       const configuration = {
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+        ],
       };
 
       const pc = new RTCPeerConnection(configuration);
       setPeerConnection(pc);
 
+      // Yerel ses akışını ekle
       stream.getTracks().forEach((track) => {
         pc.addTrack(track, stream);
       });
 
+      // Uzak ses akışını dinle
       pc.ontrack = (event) => {
-        setRemoteStream(event.streams[0]);
+        const [remoteStream] = event.streams;
+        setRemoteStream(remoteStream);
+
+        // Ses elementini oluştur
+        const audioElement = new Audio();
+        audioElement.srcObject = remoteStream;
+        audioElement.autoplay = true;
+        document.body.appendChild(audioElement);
       };
 
+      // ICE adaylarını dinle
       pc.onicecandidate = (event) => {
         if (event.candidate) {
           update(ref(db, `chats/${chatId}/callData/candidates/${nickname}`), {
@@ -344,14 +357,12 @@ function App() {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
-      const answerData = {
+      await update(ref(db, `chats/${chatId}/callData`), {
         answer: {
           type: answer.type,
           sdp: answer.sdp,
         },
-      };
-
-      await update(ref(db, `chats/${chatId}/callData`), answerData);
+      });
       setIsCallActive(true);
     } catch (error) {
       console.error("Arama yanıtlanamadı:", error);
@@ -422,7 +433,15 @@ function App() {
   useEffect(() => {
     const messagesContainer = document.querySelector(".messages-container");
     if (messagesContainer) {
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      const shouldScroll =
+        messagesContainer.scrollTop + messagesContainer.clientHeight >=
+        messagesContainer.scrollHeight - 100;
+
+      if (shouldScroll) {
+        setTimeout(() => {
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }, 100);
+      }
     }
   }, [messages]);
 
@@ -517,6 +536,13 @@ function App() {
           <button type="submit">Gönder</button>
         </form>
       </div>
+      {isCallActive && (
+        <div className="call-status">
+          <span>Sesli arama aktif</span>
+          {localStream && <span className="mic-status">🎤</span>}
+          {remoteStream && <span className="remote-status">📞</span>}
+        </div>
+      )}
     </div>
   );
 }
