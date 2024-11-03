@@ -2,33 +2,42 @@
   min-height: 100vh;
   width: 100%;
   display: flex;
-  background: linear-gradient(135deg, #1e3c72, #2a5298);
+  background: linear-gradient(rgba(30, 60, 114, 0.9), rgba(42, 82, 152, 0.9)),
+    url("https://images.unsplash.com/photo-1516321497487-e288fb19713f?q=80&w=2070")
+      center/cover no-repeat;
+  position: relative;
+  overflow: hidden;
 }
 
 .chat-container {
-  width: 100%;
+  width: 100vw;
   height: 100vh;
   height: -webkit-fill-available;
   display: flex;
   flex-direction: column;
   background-color: #f8f9fa;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
 }
 
 .chat-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: linear-gradient(135deg, #1e3c72, #2a5298);
   padding: 15px;
-  background: linear-gradient(135deg, #007bff, #0056b3);
   color: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .user-info {
   display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
   align-items: center;
-  padding: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .user-info button {
@@ -48,6 +57,7 @@
   flex-direction: column;
   gap: 10px;
   -webkit-overflow-scrolling: touch;
+  height: calc(100vh - 140px);
 }
 
 .no-messages {
@@ -123,13 +133,15 @@
 }
 
 .message-input {
-  padding: 10px;
-  display: flex;
-  gap: 10px;
-  background: white;
-  border-top: 1px solid #ddd;
   position: sticky;
   bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 15px;
+  background: white;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  z-index: 1000;
 }
 
 .message-input input {
@@ -156,55 +168,64 @@
 
 .login-container {
   background-color: rgba(255, 255, 255, 0.95);
-  padding: 2.5rem;
-  border-radius: 15px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  padding: 3rem;
+  border-radius: 20px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
   text-align: center;
   margin: auto;
   width: 90%;
   max-width: 400px;
   animation: fadeIn 0.5s ease;
+  position: relative;
+  z-index: 2;
 }
 
 .login-container h1 {
   color: #1e3c72;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
   font-size: 2.5rem;
+  font-weight: 700;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .login-container form {
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: 1.5rem;
 }
 
 .login-container input {
-  padding: 15px;
+  padding: 1rem 1.5rem;
   border: 2px solid #e1e1e1;
-  border-radius: 10px;
+  border-radius: 12px;
   font-size: 1.1rem;
-  transition: border-color 0.3s ease;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .login-container input:focus {
   border-color: #1e3c72;
+  box-shadow: 0 0 0 4px rgba(30, 60, 114, 0.1);
   outline: none;
 }
 
 .login-container button {
-  padding: 15px;
+  padding: 1rem;
   background: linear-gradient(135deg, #1e3c72, #2a5298);
   color: white;
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   font-weight: 600;
-  transition: transform 0.2s ease;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .login-container button:hover {
   transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(30, 60, 114, 0.3);
 }
 
 @keyframes fadeIn {
@@ -266,28 +287,19 @@
 
 .call-status {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
-  padding: 12px 20px;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1001;
   background: rgba(40, 167, 69, 0.95);
+  padding: 10px 20px;
   border-radius: 25px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
   gap: 8px;
-  animation: slideIn 0.3s ease;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateY(100px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+  max-width: 90%;
+  width: auto;
 }
 
 .call-indicator {
@@ -324,15 +336,13 @@
   }
 
   .user-info {
-    flex-direction: column;
-    gap: 8px;
+    justify-content: space-between;
   }
 
-  .call-status {
-    bottom: 70px;
-    right: 10px;
-    left: 10px;
-    justify-content: center;
+  .call-button,
+  .end-call-button {
+    padding: 8px 12px;
+    font-size: 14px;
   }
 
   .message-input {
@@ -340,25 +350,45 @@
     bottom: 0;
     left: 0;
     right: 0;
-    background: white;
     padding: 8px;
+    background: white;
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-    z-index: 1000;
   }
 
   .message-input input {
     height: 36px;
+    min-height: 36px;
+    max-height: 36px;
     padding: 8px;
     font-size: 16px;
-  }
-
-  .message-input button {
-    padding: 8px 16px;
-    min-width: 80px;
+    -webkit-appearance: none;
   }
 
   .messages-container {
-    padding-bottom: 60px;
-    margin-bottom: env(safe-area-inset-bottom);
+    padding-bottom: 80px;
+  }
+
+  .login-container {
+    padding: 2rem;
+    width: 85%;
+  }
+
+  .login-container h1 {
+    font-size: 2rem;
+  }
+
+  .login-container input,
+  .login-container button {
+    padding: 0.8rem;
+    font-size: 1rem;
+  }
+
+  .messages-container {
+    height: calc(100vh - 130px);
+    padding: 15px;
+  }
+
+  .message-input {
+    padding: 10px;
   }
 }

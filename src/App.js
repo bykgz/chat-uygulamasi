@@ -261,54 +261,56 @@ function App() {
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:stun1.l.google.com:19302" },
-          { urls: "stun:stun2.l.google.com:19302" },
+          {
+            urls: "turn:numb.viagenie.ca",
+            username: "webrtc@live.com",
+            credential: "muazkh",
+          },
         ],
       };
 
       const pc = new RTCPeerConnection(configuration);
       setPeerConnection(pc);
 
-      // Ses akışını ekle
       stream.getTracks().forEach((track) => {
         pc.addTrack(track, stream);
       });
 
-      // Uzak ses akışını dinle
-      pc.ontrack = (event) => {
-        const [remoteStream] = event.streams;
-        setRemoteStream(remoteStream);
+      // Ses elementini oluştur
+      const audioElement = new Audio();
+      audioElement.autoplay = true;
+      document.body.appendChild(audioElement);
 
-        // Ses elementini oluştur ve oynat
-        const audioElement = new Audio();
-        audioElement.srcObject = remoteStream;
-        audioElement
-          .play()
-          .catch((err) => console.error("Audio play error:", err));
+      pc.ontrack = (event) => {
+        audioElement.srcObject = event.streams[0];
+        setRemoteStream(event.streams[0]);
       };
 
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          update(ref(db, `chats/${chatId}/callData/candidates/${nickname}`), {
-            [Date.now()]: event.candidate.toJSON(),
-          });
+      // Bağlantı durumunu izle
+      pc.onconnectionstatechange = () => {
+        if (
+          pc.connectionState === "disconnected" ||
+          pc.connectionState === "failed"
+        ) {
+          endCall();
         }
       };
 
-      // Offer oluştur ve Firebase'e gönder
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      const callData = {
+      await update(ref(db, `chats/${chatId}/callData`), {
         offer: {
           type: offer.type,
           sdp: offer.sdp,
         },
-      };
+        caller: nickname,
+      });
 
-      await update(ref(db, `chats/${chatId}`), { callData });
       setIsCallActive(true);
     } catch (error) {
       console.error("Arama başlatılamadı:", error);
+      alert("Mikrofon erişimi reddedildi veya bir hata oluştu.");
     }
   };
 
@@ -369,13 +371,18 @@ function App() {
     }
   };
 
-  const endCall = () => {
+  const endCall = useCallback(() => {
     if (localStream) {
       localStream.getTracks().forEach((track) => track.stop());
     }
     if (peerConnection) {
       peerConnection.close();
     }
+
+    // Audio elementini temizle
+    const audioElements = document.getElementsByTagName("audio");
+    Array.from(audioElements).forEach((element) => element.remove());
+
     setLocalStream(null);
     setRemoteStream(null);
     setPeerConnection(null);
@@ -385,7 +392,7 @@ function App() {
     update(ref(db, `chats/${chatId}`), {
       callData: null,
     });
-  };
+  }, [chatId, localStream, peerConnection]);
 
   useEffect(() => {
     if (chatId && peerConnection && isCallActive) {
@@ -504,21 +511,19 @@ function App() {
             <span>Sen: {nickname}</span>
             {partnerId && <span>Partner: {partnerId}</span>}
             {!isCallActive ? (
-              <button onClick={startCall} className="call-button">
+              <button
+                onClick={startCall}
+                className="call-button"
+                disabled={!partnerId}
+              >
                 <span>🎤</span>
                 Sesli Arama
               </button>
             ) : (
-              <div className="call-status">
-                <div className="call-indicator"></div>
-                <span>Sesli arama aktif</span>
-                {localStream && <span className="mic-status">🎤</span>}
-                {remoteStream && <span className="remote-status">📞</span>}
-                <button onClick={endCall} className="end-call-button">
-                  <span>❌</span>
-                  Bitir
-                </button>
-              </div>
+              <button onClick={endCall} className="end-call-button">
+                <span>❌</span>
+                Aramayı Bitir
+              </button>
             )}
             <button onClick={handleLogout}>Çıkış</button>
           </div>
