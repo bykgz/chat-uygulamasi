@@ -7,24 +7,23 @@
 
 .chat-container {
   width: 100%;
+  max-width: 100vw;
   height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
 .chat-header {
-  padding: 20px;
+  padding: 10px;
   background-color: #007bff;
   color: white;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
 
 .user-info {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   align-items: center;
-  gap: 1rem;
 }
 
 .user-info button {
@@ -195,11 +194,39 @@
 }
 
 .call-status {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  padding: 10px;
-  background-color: rgba(0, 0, 0, 0.8);
-  color: white;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background-color: rgba(40, 167, 69, 0.9);
   border-radius: 5px;
+  font-size: 14px;
+}
+
+.mic-status,
+.remote-status {
+  font-size: 16px;
+}
+
+@media (max-width: 768px) {
+  .chat-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .user-info {
+    justify-content: center;
+  }
+
+  .message {
+    max-width: 85%;
+  }
+
+  .message-input {
+    padding: 10px;
+  }
+
+  .message-input input {
+    min-width: 0;
+  }
 }

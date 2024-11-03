@@ -251,22 +251,39 @@ function App() {
 
   const startCall = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: false,
+      });
       setLocalStream(stream);
 
       const configuration = {
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+          { urls: "stun:stun2.l.google.com:19302" },
+        ],
       };
 
       const pc = new RTCPeerConnection(configuration);
       setPeerConnection(pc);
 
+      // Ses akışını ekle
       stream.getTracks().forEach((track) => {
         pc.addTrack(track, stream);
       });
 
+      // Uzak ses akışını dinle
       pc.ontrack = (event) => {
-        setRemoteStream(event.streams[0]);
+        const [remoteStream] = event.streams;
+        setRemoteStream(remoteStream);
+
+        // Ses elementini oluştur ve oynat
+        const audioElement = new Audio();
+        audioElement.srcObject = remoteStream;
+        audioElement
+          .play()
+          .catch((err) => console.error("Audio play error:", err));
       };
 
       pc.onicecandidate = (event) => {
@@ -402,6 +419,13 @@ function App() {
     }
   }, [chatId, isCallActive, peerConnection]);
 
+  useEffect(() => {
+    const messagesContainer = document.querySelector(".messages-container");
+    if (messagesContainer) {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+  }, [messages]);
+
   if (!isLoggedIn) {
     return (
       <div className="App">
@@ -453,7 +477,10 @@ function App() {
           </div>
         </header>
 
-        <div className="messages-container">
+        <div
+          className="messages-container"
+          style={{ scrollBehavior: "smooth" }}
+        >
           {messages.length === 0 ? (
             <div className="no-messages">
               Henüz mesaj yok. Sohbete başlayın!
