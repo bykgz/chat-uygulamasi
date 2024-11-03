@@ -505,12 +505,20 @@ function App() {
             {partnerId && <span>Partner: {partnerId}</span>}
             {!isCallActive ? (
               <button onClick={startCall} className="call-button">
-                Sesli Arama Başlat
+                <span>🎤</span>
+                Sesli Arama
               </button>
             ) : (
-              <button onClick={endCall} className="end-call-button">
-                Aramayı Sonlandır
-              </button>
+              <div className="call-status">
+                <div className="call-indicator"></div>
+                <span>Sesli arama aktif</span>
+                {localStream && <span className="mic-status">🎤</span>}
+                {remoteStream && <span className="remote-status">📞</span>}
+                <button onClick={endCall} className="end-call-button">
+                  <span>❌</span>
+                  Bitir
+                </button>
+              </div>
             )}
             <button onClick={handleLogout}>Çıkış</button>
           </div>
@@ -556,13 +564,6 @@ function App() {
           <button type="submit">Gönder</button>
         </form>
       </div>
-      {isCallActive && (
-        <div className="call-status">
-          <span>Sesli arama aktif</span>
-          {localStream && <span className="mic-status">🎤</span>}
-          {remoteStream && <span className="remote-status">📞</span>}
-        </div>
-      )}
     </div>
   );
 }
