@@ -17,47 +17,25 @@ const Login = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const cleanupStaleUsers = async () => {
-      const fiveMinutesAgo = new Date().getTime() - 5 * 60 * 1000;
+    // Aktif kullanıcıları dinle (hem waiting room hem de chat'teki kullanıcılar)
+    const waitingRoomRef = collection(db, "waitingRoom");
+    const chatsRef = collection(db, "chats");
 
-      try {
-        // Tüm koleksiyonları temizle
-        const collections = ["users", "waitingRoom", "chats"];
+    const unsubscribeWaiting = onSnapshot(waitingRoomRef, (waitingSnapshot) => {
+      const waitingCount = waitingSnapshot.size;
 
-        for (const collectionName of collections) {
-          const collectionRef = collection(db, collectionName);
-          const staleQuery = query(
-            collectionRef,
-            where("timestamp", "<", fiveMinutesAgo)
-          );
-
-          const staleItems = await getDocs(staleQuery);
-          const deletePromises = staleItems.docs.map((doc) =>
-            deleteDoc(doc.ref)
-          );
-          await Promise.all(deletePromises);
-        }
-
-        // Aktif kullanıcıları say (sadece waiting room ve aktif chat'teki kullanıcılar)
-        const waitingRef = collection(db, "waitingRoom");
-        const waitingSnapshot = await getDocs(waitingRef);
-        const waitingCount = waitingSnapshot.size;
-
-        const chatsRef = collection(db, "chats");
-        const chatsSnapshot = await getDocs(chatsRef);
-        const chatCount = chatsSnapshot.size * 2;
-
+      const unsubscribeChats = onSnapshot(chatsRef, (chatSnapshot) => {
+        const chatCount = chatSnapshot.size * 2; // Her chat'te 2 kullanıcı var
         setOnlineUsers(waitingCount + chatCount);
-      } catch (error) {
-        console.error("Cleanup error:", error);
-      }
-    };
+      });
 
-    cleanupStaleUsers();
-    const cleanup = setInterval(cleanupStaleUsers, 10000); // Her 10 saniyede bir temizlik yap
+      return () => {
+        unsubscribeChats();
+      };
+    });
 
     return () => {
-      clearInterval(cleanup);
+      unsubscribeWaiting();
     };
   }, []);
 

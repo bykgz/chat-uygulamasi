@@ -11,31 +11,12 @@ function App() {
   const [partnerUserId, setPartnerUserId] = useState(null);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      console.log("Auth state changed:", user);
-      if (user) {
-        setUser(user);
-        const userRef = doc(db, "users", user.uid);
-        setDoc(userRef, {
-          uid: user.uid,
-          displayName: user.displayName,
-          lastSeen: new Date().getTime(),
-        });
-      } else {
-        setUser(null);
-      }
-    });
-
-    window.addEventListener("beforeunload", async () => {
+    let updateInterval;
+    const handleBeforeUnload = async () => {
       if (auth.currentUser) {
         try {
-          // Kullanıcı kaydını sil
           await deleteDoc(doc(db, "users", auth.currentUser.uid));
-
-          // Waiting room kaydını sil
           await deleteDoc(doc(db, "waitingRoom", auth.currentUser.uid));
-
-          // Eğer aktif bir chat varsa onu da sil
           if (chatId) {
             await deleteDoc(doc(db, "chats", chatId));
           }
@@ -43,10 +24,35 @@ function App() {
           console.error("Cleanup error:", error);
         }
       }
+    };
+
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        setUser(user);
+        const userRef = doc(db, "users", user.uid);
+
+        setDoc(userRef, {
+          uid: user.uid,
+          displayName: user.displayName,
+          lastSeen: new Date().getTime(),
+        });
+
+        updateInterval = setInterval(() => {
+          setDoc(userRef, { lastSeen: new Date().getTime() }, { merge: true });
+        }, 10000);
+      } else {
+        setUser(null);
+      }
     });
 
-    return () => unsubscribe();
-  }, []);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      unsubscribe();
+      if (updateInterval) clearInterval(updateInterval);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [chatId]);
 
   const handleMatch = (newChatId, partnerId) => {
     setChatId(newChatId);

@@ -96,28 +96,24 @@ const Chat = ({ chatId, currentUser, partnerUserId, onMatch, onSkip }) => {
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-white shadow-md p-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+      {/* Header - daha kompakt */}
+      <div className="bg-white shadow-md p-3 sm:p-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-between px-2">
           <div
             onClick={handleLogoClick}
-            className="text-xl font-bold text-primary cursor-pointer hover:text-orange-600 transition-colors"
+            className="text-lg sm:text-xl font-bold text-primary cursor-pointer hover:text-orange-600 transition-colors"
           >
             oChatle
           </div>
-          <div className="text-sm text-gray-500">
-            You are talking with a stranger
+          <div className="text-xs sm:text-sm text-gray-500">
+            Chatting with stranger
           </div>
         </div>
       </div>
 
-      {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto p-4 max-w-4xl mx-auto w-full">
-        <div className="space-y-4">
-          <div className="text-center text-sm text-gray-500">
-            👋 Chat started
-          </div>
-
+      {/* Chat Area - mobil için padding azalt */}
+      <div className="flex-1 overflow-y-auto p-2 sm:p-4 max-w-4xl mx-auto w-full">
+        <div className="space-y-3">
           {messages.map((message) => (
             <div
               key={message.id}
@@ -128,7 +124,7 @@ const Chat = ({ chatId, currentUser, partnerUserId, onMatch, onSkip }) => {
               }`}
             >
               <div
-                className={`max-w-[70%] rounded-lg p-3 ${
+                className={`max-w-[85%] sm:max-w-[70%] rounded-lg p-2 sm:p-3 ${
                   message.senderId === currentUser.uid
                     ? "bg-blue-500 text-white"
                     : "bg-gray-200 text-gray-800"
@@ -141,40 +137,25 @@ const Chat = ({ chatId, currentUser, partnerUserId, onMatch, onSkip }) => {
               </div>
             </div>
           ))}
-
-          {isTyping && (
-            <div className="text-gray-500 text-sm">Stranger is typing...</div>
-          )}
         </div>
       </div>
 
-      {/* Input Area */}
-      <div className="bg-white border-t p-4">
+      {/* Input Area - mobil için daha kompakt */}
+      <div className="bg-white border-t p-2 sm:p-4">
         <div className="max-w-4xl mx-auto flex gap-2">
+          <input
+            type="text"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Type a message..."
+            className="flex-1 p-2 border rounded-lg text-sm focus:outline-none focus:border-blue-500"
+          />
           <button
             onClick={handleSkip}
-            disabled={isSkipping}
-            className={`px-6 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors
-                  ${isSkipping ? "opacity-50 cursor-not-allowed" : ""}`}
+            className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 transition-colors"
           >
-            {isSkipping ? "Searching..." : "SKIP"}
+            Skip
           </button>
-
-          <form onSubmit={handleSend} className="flex-1 flex gap-2">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type your message here..."
-              className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
-            />
-            <button
-              type="submit"
-              className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-            >
-              SEND
-            </button>
-          </form>
         </div>
       </div>
     </div>

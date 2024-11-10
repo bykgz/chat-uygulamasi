@@ -71,26 +71,30 @@ const WaitingRoom = ({ user, onMatch }) => {
   return (
     <div className="flex flex-col min-h-screen bg-white">
       <div className="bg-white shadow-sm border-b">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
           <div
             onClick={handleLogoClick}
-            className="text-2xl font-bold text-orange-500 cursor-pointer hover:text-orange-600 transition-colors"
+            className="text-xl sm:text-2xl font-bold text-orange-500 cursor-pointer hover:text-orange-600 transition-colors"
           >
             oChatle
           </div>
-          <div className="text-sm text-gray-500">Waiting for match...</div>
+          <div className="text-xs sm:text-sm text-gray-500">
+            Waiting for match...
+          </div>
         </div>
       </div>
 
       <div className="flex-1 flex items-center justify-center p-4">
-        <div className="text-center space-y-6">
-          <h2 className="text-2xl font-semibold text-gray-800 animate-pulse">
+        <div className="text-center space-y-4 sm:space-y-6">
+          <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 animate-pulse">
             Looking for someone...
           </h2>
           <div className="flex justify-center">
-            <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-12 h-12 sm:w-16 sm:h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
-          <p className="text-gray-600">We're trying to find someone for you</p>
+          <p className="text-sm sm:text-base text-gray-600">
+            We're trying to find someone for you
+          </p>
         </div>
       </div>
 
