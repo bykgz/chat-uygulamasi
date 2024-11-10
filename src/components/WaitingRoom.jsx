@@ -17,45 +17,80 @@ const WaitingRoom = ({ user, onMatch }) => {
   useEffect(() => {
     if (!user) return;
 
+    // Kullanıcıyı waiting room'a ekle
     const addToWaitingRoom = async () => {
       const waitingRef = doc(db, "waitingRoom", user.uid);
       await setDoc(waitingRef, {
         userId: user.uid,
         displayName: user.displayName || "Anonymous",
-        timestamp: new Date().getTime(),
+        timestamp: Date.now(),
+        matched: false,
       });
     };
 
+    // Eşleştirme kontrolü
     const checkForMatch = () => {
       const waitingRoomRef = collection(db, "waitingRoom");
-      const q = query(waitingRoomRef, where("userId", "!=", user.uid));
+      const q = query(
+        waitingRoomRef,
+        where("userId", "!=", user.uid),
+        where("matched", "==", false)
+      );
 
       return onSnapshot(q, async (snapshot) => {
-        const waitingUsers = snapshot.docs.map((doc) => doc.data());
+        const waitingUsers = snapshot.docs.map((doc) => ({
+          ...doc.data(),
+          id: doc.id,
+        }));
 
         if (waitingUsers.length > 0) {
-          const randomUser =
-            waitingUsers[Math.floor(Math.random() * waitingUsers.length)];
-          const chatId = [user.uid, randomUser.userId].sort().join("-");
+          const partner = waitingUsers[0];
+          const chatId = [user.uid, partner.userId].sort().join("-");
 
-          await deleteDoc(doc(db, "waitingRoom", user.uid));
-          await deleteDoc(doc(db, "waitingRoom", randomUser.userId));
+          try {
+            // Partner'ı matched olarak işaretle
+            await setDoc(
+              doc(db, "waitingRoom", partner.id),
+              { matched: true },
+              { merge: true }
+            );
 
-          onMatch(chatId, randomUser.userId);
+            // Chat oluştur
+            await setDoc(doc(db, "chats", chatId), {
+              users: [user.uid, partner.userId],
+              createdAt: Date.now(),
+            });
+
+            // Kullanıcıları waiting room'dan sil
+            await deleteDoc(doc(db, "waitingRoom", user.uid));
+            await deleteDoc(doc(db, "waitingRoom", partner.id));
+
+            onMatch(chatId, partner.userId);
+          } catch (error) {
+            console.error("Matching error:", error);
+          }
         }
       });
     };
 
-    const unsubscribe = checkForMatch();
-    addToWaitingRoom();
+    // İşlemleri başlat
+    const timeout = setTimeout(() => {
+      addToWaitingRoom().then(() => {
+        const unsubscribe = checkForMatch();
+        return () => {
+          unsubscribe();
+          deleteDoc(doc(db, "waitingRoom", user.uid));
+        };
+      });
+    }, 1000);
 
     return () => {
-      unsubscribe();
+      clearTimeout(timeout);
       if (user?.uid) {
         deleteDoc(doc(db, "waitingRoom", user.uid));
       }
     };
-  }, [user]);
+  }, [user, onMatch]);
 
   const handleLogoClick = async () => {
     try {

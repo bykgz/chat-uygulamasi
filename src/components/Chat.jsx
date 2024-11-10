@@ -20,6 +20,8 @@ const Chat = ({ chatId, currentUser, partnerUserId, onMatch, onSkip }) => {
   const [isTyping, setIsTyping] = useState(false);
   const [isSkipping, setIsSkipping] = useState(false);
   const messagesEndRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+  const [error, setError] = useState(null);
 
   // Mesajları yükle ve dinle
   useEffect(() => {
@@ -94,6 +96,27 @@ const Chat = ({ chatId, currentUser, partnerUserId, onMatch, onSkip }) => {
     }
   };
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleTyping = (e) => {
+    setIsTyping(true);
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    typingTimeoutRef.current = setTimeout(() => setIsTyping(false), 1000);
+  };
+
+  // Clean up typing timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div className="flex flex-col h-screen bg-gray-100">
       {/* Header */}
@@ -138,6 +161,7 @@ const Chat = ({ chatId, currentUser, partnerUserId, onMatch, onSkip }) => {
             </div>
           ))}
         </div>
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Input Area */}
@@ -145,14 +169,20 @@ const Chat = ({ chatId, currentUser, partnerUserId, onMatch, onSkip }) => {
         <div className="max-w-4xl mx-auto flex gap-3">
           <button
             onClick={handleSkip}
-            className="px-6 py-3 bg-orange-500 text-white rounded-lg text-base hover:bg-orange-600 transition-colors"
+            disabled={isSkipping}
+            className={`px-6 py-3 ${
+              isSkipping ? "bg-gray-400" : "bg-orange-500 hover:bg-orange-600"
+            } text-white rounded-lg text-base transition-colors`}
           >
-            Skip
+            {isSkipping ? "Skipping..." : "Skip"}
           </button>
           <input
             type="text"
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
+            onChange={(e) => {
+              setNewMessage(e.target.value);
+              handleTyping(e);
+            }}
             onKeyPress={(e) => e.key === "Enter" && handleSend(e)}
             placeholder="Type a message..."
             className="flex-1 px-4 py-3 border rounded-lg text-base focus:outline-none focus:border-blue-500"
@@ -165,6 +195,11 @@ const Chat = ({ chatId, currentUser, partnerUserId, onMatch, onSkip }) => {
           </button>
         </div>
       </div>
+
+      {/* Hata durumunda gösterilecek */}
+      {error && (
+        <div className="text-red-500 text-sm text-center mb-2">{error}</div>
+      )}
     </div>
   );
 };

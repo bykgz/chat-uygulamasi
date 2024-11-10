@@ -3,7 +3,15 @@ import { auth, db } from "./firebase/config";
 import Login from "./components/Login";
 import WaitingRoom from "./components/WaitingRoom";
 import Chat from "./components/Chat";
-import { doc, setDoc, deleteDoc } from "firebase/firestore";
+import {
+  doc,
+  setDoc,
+  deleteDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -11,45 +19,73 @@ function App() {
   const [partnerUserId, setPartnerUserId] = useState(null);
 
   useEffect(() => {
-    let updateInterval;
-    const handleBeforeUnload = async () => {
+    const cleanup = async () => {
       if (auth.currentUser) {
         try {
-          await deleteDoc(doc(db, "users", auth.currentUser.uid));
-          await deleteDoc(doc(db, "waitingRoom", auth.currentUser.uid));
+          // Kullanıcının mevcut chat mesajlarını temizle
           if (chatId) {
+            const messagesRef = collection(db, `chats/${chatId}/messages`);
+            const messagesSnapshot = await getDocs(messagesRef);
+            const deletePromises = messagesSnapshot.docs.map((doc) =>
+              deleteDoc(doc.ref)
+            );
+            await Promise.all(deletePromises);
             await deleteDoc(doc(db, "chats", chatId));
           }
+
+          // Kullanıcıyı waiting room ve users'dan sil
+          await deleteDoc(doc(db, "waitingRoom", auth.currentUser.uid));
+          await deleteDoc(doc(db, "users", auth.currentUser.uid));
         } catch (error) {
           console.error("Cleanup error:", error);
         }
       }
     };
 
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const handleBeforeUnload = () => {
+      cleanup();
+    };
+
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
         setUser(user);
         const userRef = doc(db, "users", user.uid);
 
-        setDoc(userRef, {
+        await setDoc(userRef, {
           uid: user.uid,
           displayName: user.displayName,
-          lastSeen: new Date().getTime(),
+          lastSeen: Date.now(),
+          isOnline: true,
         });
 
-        updateInterval = setInterval(() => {
-          setDoc(userRef, { lastSeen: new Date().getTime() }, { merge: true });
+        // Kullanıcının aktif olduğunu belirli aralıklarla güncelle
+        const updateInterval = setInterval(() => {
+          setDoc(
+            userRef,
+            {
+              lastSeen: Date.now(),
+              isOnline: true,
+            },
+            { merge: true }
+          );
         }, 10000);
+
+        return () => {
+          clearInterval(updateInterval);
+          setDoc(userRef, { isOnline: false }, { merge: true });
+        };
       } else {
         setUser(null);
+        setChatId(null);
+        setPartnerUserId(null);
       }
     });
 
     window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
+      cleanup();
       unsubscribe();
-      if (updateInterval) clearInterval(updateInterval);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [chatId]);
@@ -59,7 +95,22 @@ function App() {
     setPartnerUserId(partnerId);
   };
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
+    if (chatId) {
+      try {
+        // Mevcut chat'i temizle
+        const messagesRef = collection(db, `chats/${chatId}/messages`);
+        const messagesSnapshot = await getDocs(messagesRef);
+        const deletePromises = messagesSnapshot.docs.map((doc) =>
+          deleteDoc(doc.ref)
+        );
+        await Promise.all(deletePromises);
+        await deleteDoc(doc(db, "chats", chatId));
+      } catch (error) {
+        console.error("Skip cleanup error:", error);
+      }
+    }
+
     setChatId(null);
     setPartnerUserId(null);
   };
