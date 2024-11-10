@@ -9,7 +9,6 @@ import {
   deleteDoc,
   collection,
   query,
-  where,
   getDocs,
 } from "firebase/firestore";
 
@@ -22,7 +21,6 @@ function App() {
     const cleanup = async () => {
       if (auth.currentUser) {
         try {
-          // Kullanıcının mevcut chat mesajlarını temizle
           if (chatId) {
             const messagesRef = collection(db, `chats/${chatId}/messages`);
             const messagesSnapshot = await getDocs(messagesRef);
@@ -33,7 +31,6 @@ function App() {
             await deleteDoc(doc(db, "chats", chatId));
           }
 
-          // Kullanıcıyı waiting room ve users'dan sil
           await deleteDoc(doc(db, "waitingRoom", auth.currentUser.uid));
           await deleteDoc(doc(db, "users", auth.currentUser.uid));
         } catch (error) {
@@ -59,7 +56,6 @@ function App() {
           isOnline: true,
         });
 
-        // Kullanıcının aktif olduğunu belirli aralıklarla güncelle
         const updateInterval = setInterval(() => {
           setDoc(
             userRef,
@@ -99,7 +95,6 @@ function App() {
   const handleSkip = async () => {
     if (chatId) {
       try {
-        // Mevcut chat'i temizle
         const messagesRef = collection(db, `chats/${chatId}/messages`);
         const messagesSnapshot = await getDocs(messagesRef);
         const deletePromises = messagesSnapshot.docs.map((doc) =>

@@ -8,9 +8,7 @@ import {
   onSnapshot,
   deleteDoc,
   doc,
-  setDoc,
   getDocs,
-  where,
 } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 
@@ -23,7 +21,6 @@ const Chat = ({ chatId, currentUser, partnerUserId, onMatch, onSkip }) => {
   const typingTimeoutRef = useRef(null);
   const [error, setError] = useState(null);
 
-  // Mesajları yükle ve dinle
   useEffect(() => {
     const q = query(
       collection(db, `chats/${chatId}/messages`),
@@ -58,7 +55,6 @@ const Chat = ({ chatId, currentUser, partnerUserId, onMatch, onSkip }) => {
     setIsSkipping(true);
 
     try {
-      // Önce tüm mesajları silelim
       const messagesRef = collection(db, `chats/${chatId}/messages`);
       const messagesSnapshot = await getDocs(messagesRef);
       const deletePromises = messagesSnapshot.docs.map((doc) =>
@@ -66,10 +62,8 @@ const Chat = ({ chatId, currentUser, partnerUserId, onMatch, onSkip }) => {
       );
       await Promise.all(deletePromises);
 
-      // Sonra chat dokümanını silelim
       await deleteDoc(doc(db, `chats/${chatId}`));
 
-      // WaitingRoom'a geçiş yap
       onSkip();
     } catch (error) {
       console.error("Skip error:", error);
@@ -80,7 +74,6 @@ const Chat = ({ chatId, currentUser, partnerUserId, onMatch, onSkip }) => {
 
   const handleLogoClick = async () => {
     try {
-      // Önce chat mesajlarını ve dokümanını temizleyelim
       const messagesRef = collection(db, `chats/${chatId}/messages`);
       const messagesSnapshot = await getDocs(messagesRef);
       const deletePromises = messagesSnapshot.docs.map((doc) =>
@@ -89,7 +82,6 @@ const Chat = ({ chatId, currentUser, partnerUserId, onMatch, onSkip }) => {
       await Promise.all(deletePromises);
       await deleteDoc(doc(db, `chats/${chatId}`));
 
-      // Kullanıcıyı çıkış yaptır
       await signOut(auth);
     } catch (error) {
       console.error("Cleanup error:", error);
@@ -108,7 +100,6 @@ const Chat = ({ chatId, currentUser, partnerUserId, onMatch, onSkip }) => {
     typingTimeoutRef.current = setTimeout(() => setIsTyping(false), 1000);
   };
 
-  // Clean up typing timeout on unmount
   useEffect(() => {
     return () => {
       if (typingTimeoutRef.current) {
@@ -119,7 +110,6 @@ const Chat = ({ chatId, currentUser, partnerUserId, onMatch, onSkip }) => {
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
-      {/* Header */}
       <div className="bg-white shadow-md p-2 sm:p-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between px-2">
           <div
@@ -134,7 +124,6 @@ const Chat = ({ chatId, currentUser, partnerUserId, onMatch, onSkip }) => {
         </div>
       </div>
 
-      {/* Chat Area */}
       <div className="flex-1 overflow-y-auto p-2 sm:p-4 max-w-4xl mx-auto w-full">
         <div className="space-y-2 sm:space-y-3">
           {messages.map((message) => (
@@ -164,7 +153,6 @@ const Chat = ({ chatId, currentUser, partnerUserId, onMatch, onSkip }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
       <div className="bg-white border-t p-3 sm:p-4">
         <div className="max-w-4xl mx-auto flex gap-3">
           <button
@@ -196,7 +184,6 @@ const Chat = ({ chatId, currentUser, partnerUserId, onMatch, onSkip }) => {
         </div>
       </div>
 
-      {/* Hata durumunda gösterilecek */}
       {error && (
         <div className="text-red-500 text-sm text-center mb-2">{error}</div>
       )}

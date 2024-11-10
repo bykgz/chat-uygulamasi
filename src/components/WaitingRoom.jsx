@@ -5,7 +5,6 @@ import {
   setDoc,
   collection,
   query,
-  where,
   onSnapshot,
   deleteDoc,
 } from "firebase/firestore";
@@ -17,7 +16,6 @@ const WaitingRoom = ({ user, onMatch }) => {
   useEffect(() => {
     if (!user) return;
 
-    // Kullanıcıyı waiting room'a ekle
     const waitingRef = doc(db, "waitingRoom", user.uid);
     setDoc(waitingRef, {
       userId: user.uid,
@@ -25,7 +23,6 @@ const WaitingRoom = ({ user, onMatch }) => {
       timestamp: Date.now(),
     });
 
-    // Diğer kullanıcıları dinle
     const waitingRoomRef = collection(db, "waitingRoom");
     const q = query(waitingRoomRef);
 
@@ -42,13 +39,11 @@ const WaitingRoom = ({ user, onMatch }) => {
         const chatId = [user.uid, partner.userId].sort().join("-");
 
         try {
-          // Chat oluştur
           await setDoc(doc(db, "chats", chatId), {
             users: [user.uid, partner.userId],
             createdAt: Date.now(),
           });
 
-          // Kullanıcıları waiting room'dan sil
           await deleteDoc(doc(db, "waitingRoom", user.uid));
           await deleteDoc(doc(db, "waitingRoom", partner.id));
 
