@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { db } from "../firebase/config";
+import { db, auth } from "../firebase/config";
 import {
   collection,
   addDoc,
@@ -8,146 +8,175 @@ import {
   onSnapshot,
   deleteDoc,
   doc,
+  setDoc,
+  getDocs,
+  where,
 } from "firebase/firestore";
+import { signOut } from "firebase/auth";
 
-const Chat = ({ chatId, currentUser, partnerUserId }) => {
+const Chat = ({ chatId, currentUser, partnerUserId, onMatch, onSkip }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const [isSkipping, setIsSkipping] = useState(false);
   const messagesEndRef = useRef(null);
-  const [onlineUsers, setOnlineUsers] = useState(0);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
+  // Mesajları yükle ve dinle
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    const q = query(
+      collection(db, `chats/${chatId}/messages`),
+      orderBy("timestamp")
+    );
 
-  useEffect(() => {
-    const messagesRef = collection(db, `chats/${chatId}/messages`);
-    const q = query(messagesRef, orderBy("timestamp"));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const messageList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setMessages(messageList);
+    return onSnapshot(q, (snapshot) => {
+      setMessages(
+        snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
+      );
     });
-
-    return () => unsubscribe();
   }, [chatId]);
 
-  useEffect(() => {
-    const usersRef = collection(db, "users");
-    const unsubscribe = onSnapshot(usersRef, (snapshot) => {
-      setOnlineUsers(snapshot.size);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  const sendMessage = async (e) => {
+  const handleSend = async (e) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
 
     await addDoc(collection(db, `chats/${chatId}/messages`), {
       text: newMessage,
       senderId: currentUser.uid,
-      timestamp: new Date().getTime(),
+      timestamp: Date.now(),
     });
 
     setNewMessage("");
   };
 
-  const handleExit = async () => {
+  const handleSkip = async () => {
+    if (isSkipping) return;
+    setIsSkipping(true);
+
     try {
-      await deleteDoc(doc(db, "chats", chatId));
-      window.location.reload();
+      // Önce tüm mesajları silelim
+      const messagesRef = collection(db, `chats/${chatId}/messages`);
+      const messagesSnapshot = await getDocs(messagesRef);
+      const deletePromises = messagesSnapshot.docs.map((doc) =>
+        deleteDoc(doc.ref)
+      );
+      await Promise.all(deletePromises);
+
+      // Sonra chat dokümanını silelim
+      await deleteDoc(doc(db, `chats/${chatId}`));
+
+      // WaitingRoom'a geçiş yap
+      onSkip();
     } catch (error) {
-      console.error("Çıkış hatası:", error);
+      console.error("Skip error:", error);
+    } finally {
+      setIsSkipping(false);
+    }
+  };
+
+  const handleLogoClick = async () => {
+    try {
+      // Önce chat mesajlarını ve dokümanını temizleyelim
+      const messagesRef = collection(db, `chats/${chatId}/messages`);
+      const messagesSnapshot = await getDocs(messagesRef);
+      const deletePromises = messagesSnapshot.docs.map((doc) =>
+        deleteDoc(doc.ref)
+      );
+      await Promise.all(deletePromises);
+      await deleteDoc(doc(db, `chats/${chatId}`));
+
+      // Kullanıcıyı çıkış yaptır
+      await signOut(auth);
+    } catch (error) {
+      console.error("Cleanup error:", error);
     }
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="bg-gradient-to-r from-primary-dark via-secondary to-secondary-dark p-4 shadow-lg">
-        <div className="flex justify-between items-center max-w-4xl mx-auto">
-          <div className="text-white/80 text-sm">
-            <span className="inline-block w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-            Sohbet Aktif
-          </div>
-          <h2 className="text-2xl font-bold text-white text-center">
-            Random Chat
-          </h2>
-          <button
-            onClick={handleExit}
-            className="px-4 py-2 bg-red-500/10 text-white rounded-lg hover:bg-red-500/20 
-            transition-all duration-200"
+    <div className="flex flex-col h-screen bg-gray-100">
+      {/* Header */}
+      <div className="bg-white shadow-md p-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div
+            onClick={handleLogoClick}
+            className="text-xl font-bold text-primary cursor-pointer hover:text-orange-600 transition-colors"
           >
-            Çıkış
-          </button>
+            oChatle
+          </div>
+          <div className="text-sm text-gray-500">
+            You are talking with a stranger
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${
-              message.senderId === currentUser.uid
-                ? "justify-end"
-                : "justify-start"
-            }`}
-          >
+      {/* Chat Area */}
+      <div className="flex-1 overflow-y-auto p-4 max-w-4xl mx-auto w-full">
+        <div className="space-y-4">
+          <div className="text-center text-sm text-gray-500">
+            👋 Chat started
+          </div>
+
+          {messages.map((message) => (
             <div
-              className={`max-w-[70%] break-words p-4 rounded-2xl shadow-md ${
+              key={message.id}
+              className={`flex ${
                 message.senderId === currentUser.uid
-                  ? "bg-gradient-to-r from-primary to-secondary text-white rounded-br-none"
-                  : "bg-white text-gray-800 rounded-bl-none"
+                  ? "justify-end"
+                  : "justify-start"
               }`}
             >
-              {message.text}
               <div
-                className={`text-xs mt-1 ${
+                className={`max-w-[70%] rounded-lg p-3 ${
                   message.senderId === currentUser.uid
-                    ? "text-white/70"
-                    : "text-gray-500"
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-200 text-gray-800"
                 }`}
               >
-                {new Date(message.timestamp).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                <div className="text-sm">
+                  {message.senderId === currentUser.uid ? "You" : "Stranger"}:{" "}
+                  {message.text}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-        <div ref={messagesEndRef} />
+          ))}
+
+          {isTyping && (
+            <div className="text-gray-500 text-sm">Stranger is typing...</div>
+          )}
+        </div>
       </div>
 
-      <form onSubmit={sendMessage} className="p-4 bg-white border-t shadow-lg">
-        <div className="flex space-x-3 max-w-4xl mx-auto">
-          <input
-            type="text"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            className="flex-1 p-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 
-            focus:ring-primary focus:border-transparent shadow-sm transition-all duration-200"
-            placeholder="Mesajınızı yazın..."
-          />
+      {/* Input Area */}
+      <div className="bg-white border-t p-4">
+        <div className="max-w-4xl mx-auto flex gap-2">
           <button
-            type="submit"
-            className="px-8 py-4 bg-gradient-to-r from-primary to-secondary text-white rounded-xl 
-            font-semibold hover:opacity-90 transform hover:-translate-y-0.5 transition-all duration-200 
-            shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none"
-            disabled={!newMessage.trim()}
+            onClick={handleSkip}
+            disabled={isSkipping}
+            className={`px-6 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors
+                  ${isSkipping ? "opacity-50 cursor-not-allowed" : ""}`}
           >
-            Gönder
+            {isSkipping ? "Searching..." : "SKIP"}
           </button>
+
+          <form onSubmit={handleSend} className="flex-1 flex gap-2">
+            <input
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Type your message here..."
+              className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
+            />
+            <button
+              type="submit"
+              className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+            >
+              SEND
+            </button>
+          </form>
         </div>
-      </form>
+      </div>
     </div>
   );
 };

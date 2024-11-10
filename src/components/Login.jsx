@@ -1,8 +1,15 @@
 import { useState, useEffect } from "react";
 import { auth, db } from "../firebase/config";
 import { signInAnonymously, updateProfile } from "firebase/auth";
-import { collection, onSnapshot } from "firebase/firestore";
-import { doc, setDoc } from "firebase/firestore";
+import {
+  collection,
+  onSnapshot,
+  query,
+  where,
+  getDocs,
+  deleteDoc,
+  doc,
+} from "firebase/firestore";
 
 const Login = () => {
   const [nickname, setNickname] = useState("");
@@ -10,82 +17,118 @@ const Login = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const usersRef = collection(db, "users");
-    const unsubscribe = onSnapshot(usersRef, (snapshot) => {
-      setOnlineUsers(snapshot.size);
-    });
+    const cleanupStaleUsers = async () => {
+      const fiveMinutesAgo = new Date().getTime() - 5 * 60 * 1000;
 
-    return () => unsubscribe();
+      try {
+        // Tüm koleksiyonları temizle
+        const collections = ["users", "waitingRoom", "chats"];
+
+        for (const collectionName of collections) {
+          const collectionRef = collection(db, collectionName);
+          const staleQuery = query(
+            collectionRef,
+            where("timestamp", "<", fiveMinutesAgo)
+          );
+
+          const staleItems = await getDocs(staleQuery);
+          const deletePromises = staleItems.docs.map((doc) =>
+            deleteDoc(doc.ref)
+          );
+          await Promise.all(deletePromises);
+        }
+
+        // Aktif kullanıcıları say (sadece waiting room ve aktif chat'teki kullanıcılar)
+        const waitingRef = collection(db, "waitingRoom");
+        const waitingSnapshot = await getDocs(waitingRef);
+        const waitingCount = waitingSnapshot.size;
+
+        const chatsRef = collection(db, "chats");
+        const chatsSnapshot = await getDocs(chatsRef);
+        const chatCount = chatsSnapshot.size * 2;
+
+        setOnlineUsers(waitingCount + chatCount);
+      } catch (error) {
+        console.error("Cleanup error:", error);
+      }
+    };
+
+    cleanupStaleUsers();
+    const cleanup = setInterval(cleanupStaleUsers, 10000); // Her 10 saniyede bir temizlik yap
+
+    return () => {
+      clearInterval(cleanup);
+    };
   }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
-
     if (!nickname.trim()) {
-      setError("Lütfen bir kullanıcı adı girin");
+      setError("Please enter a nickname");
       return;
     }
 
     try {
       const userCredential = await signInAnonymously(auth);
       await updateProfile(userCredential.user, {
-        displayName: nickname,
+        displayName: nickname.trim(),
       });
 
       await setDoc(doc(db, "users", userCredential.user.uid), {
-        displayName: nickname,
+        displayName: nickname.trim(),
         userId: userCredential.user.uid,
         timestamp: new Date().getTime(),
+        isOnline: true,
       });
     } catch (error) {
-      console.error("Giriş hatası:", error);
-      setError("Giriş yapılırken bir hata oluştu");
+      console.error("Login error:", error);
+      setError("An error occurred, please try again");
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-primary-dark via-secondary to-secondary-dark">
-      <div className="p-10 bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl transform hover:scale-105 transition-all duration-300 max-w-md w-full mx-4">
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center bg-green-100 px-4 py-2 rounded-full">
-            <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-            <span className="text-green-800 text-sm">
-              {onlineUsers} çevrimiçi
+    <div className="flex flex-col min-h-screen bg-white">
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="text-2xl font-bold text-orange-500">oChatle</div>
+          <div className="text-sm text-gray-500">
+            <span className="inline-flex items-center">
+              <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
+              {onlineUsers} online
             </span>
           </div>
         </div>
+      </div>
 
-        <h1 className="text-4xl font-bold mb-6 text-center bg-gradient-to-r from-primary to-secondary text-transparent bg-clip-text">
-          Random Chat
-        </h1>
-
-        <p className="text-gray-600 mb-8 text-center">
-          Yeni insanlarla tanışmaya hazır mısın?
-        </p>
-
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="max-w-md w-full">
+          <form onSubmit={handleLogin} className="space-y-4">
             <input
               type="text"
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
-              placeholder="Kullanıcı adınız"
-              className="w-full p-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 
-              focus:ring-primary focus:border-transparent shadow-sm"
+              placeholder="Your nickname"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none 
+              focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               maxLength={20}
             />
-            {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
-          </div>
+            {error && <p className="text-sm text-red-500">{error}</p>}
+            <button
+              type="submit"
+              className="w-full py-3 px-4 bg-blue-500 text-white rounded-lg font-medium
+              hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+              transition-all duration-200"
+            >
+              Start Chat
+            </button>
+          </form>
+        </div>
+      </div>
 
-          <button
-            type="submit"
-            className="w-full bg-gradient-to-r from-primary to-secondary text-white py-4 px-8 rounded-xl
-            font-semibold hover:opacity-90 transform hover:-translate-y-0.5 transition-all duration-200
-            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary shadow-lg"
-          >
-            Sohbete Başla
-          </button>
-        </form>
+      <div className="bg-gray-50 border-t py-4">
+        <div className="max-w-4xl mx-auto px-4 text-center text-sm text-gray-500">
+          Please be polite and avoid inappropriate behavior during chat.
+        </div>
       </div>
     </div>
   );

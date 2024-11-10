@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { db } from "../firebase/config";
+import { db, auth } from "../firebase/config";
 import {
   doc,
   setDoc,
@@ -9,18 +9,19 @@ import {
   onSnapshot,
   deleteDoc,
 } from "firebase/firestore";
+import { signOut } from "firebase/auth";
 
 const WaitingRoom = ({ user, onMatch }) => {
-  const [searching, setSearching] = useState(false);
+  const [searching, setSearching] = useState(true);
 
   useEffect(() => {
-    if (!user || !searching) return;
+    if (!user) return;
 
     const addToWaitingRoom = async () => {
       const waitingRef = doc(db, "waitingRoom", user.uid);
       await setDoc(waitingRef, {
         userId: user.uid,
-        displayName: user.displayName || "Anonim",
+        displayName: user.displayName || "Anonymous",
         timestamp: new Date().getTime(),
       });
     };
@@ -41,7 +42,6 @@ const WaitingRoom = ({ user, onMatch }) => {
           await deleteDoc(doc(db, "waitingRoom", randomUser.userId));
 
           onMatch(chatId, randomUser.userId);
-          setSearching(false);
         }
       });
     };
@@ -55,66 +55,49 @@ const WaitingRoom = ({ user, onMatch }) => {
         deleteDoc(doc(db, "waitingRoom", user.uid));
       }
     };
-  }, [user, searching]);
+  }, [user]);
 
-  const handleCancel = async () => {
+  const handleLogoClick = async () => {
     try {
-      setSearching(false);
-      await deleteDoc(doc(db, "waitingRoom", user.uid));
-      window.location.reload();
+      if (user?.uid) {
+        await deleteDoc(doc(db, "waitingRoom", user.uid));
+      }
+      await signOut(auth);
     } catch (error) {
-      console.error("İptal hatası:", error);
+      console.error("Logout error:", error);
     }
-  };
-
-  const startSearching = () => {
-    if (!user.displayName) {
-      alert("Lütfen önce bir kullanıcı adı belirleyin!");
-      window.location.reload();
-      return;
-    }
-    setSearching(true);
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-primary-dark via-secondary to-secondary-dark">
-      <div className="p-10 bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl max-w-md w-full mx-4">
-        {!searching ? (
-          <div className="text-center">
-            <h2 className="text-3xl font-bold mb-8 bg-gradient-to-r from-primary to-secondary text-transparent bg-clip-text">
-              Sohbet Başlatın
-            </h2>
-            <button
-              onClick={startSearching}
-              className="w-full bg-gradient-to-r from-primary to-secondary text-white py-4 px-8 rounded-xl
-              font-semibold hover:opacity-90 transition-all duration-200 shadow-lg"
-            >
-              Sohbet Arkadaşı Bul
-            </button>
+    <div className="flex flex-col min-h-screen bg-white">
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div
+            onClick={handleLogoClick}
+            className="text-2xl font-bold text-orange-500 cursor-pointer hover:text-orange-600 transition-colors"
+          >
+            oChatle
           </div>
-        ) : (
-          <>
-            <h2 className="text-3xl font-bold mb-8 text-center bg-gradient-to-r from-primary to-secondary text-transparent bg-clip-text animate-pulse">
-              Sohbet arkadaşı aranıyor...
-            </h2>
-            <div className="flex flex-col items-center space-y-8">
-              <div className="relative">
-                <div className="w-20 h-20 border-4 border-primary rounded-full animate-spin border-t-transparent"></div>
-                <div className="w-20 h-20 border-4 border-secondary rounded-full animate-ping opacity-20 absolute top-0"></div>
-              </div>
-              <p className="text-gray-600 text-center text-lg">
-                Size en uygun sohbet arkadaşını bulmaya çalışıyoruz
-              </p>
-              <button
-                onClick={handleCancel}
-                className="mt-6 px-6 py-2 text-red-500 border border-red-500 rounded-lg hover:bg-red-50 
-                transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-              >
-                Aramayı İptal Et
-              </button>
-            </div>
-          </>
-        )}
+          <div className="text-sm text-gray-500">Waiting for match...</div>
+        </div>
+      </div>
+
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="text-center space-y-6">
+          <h2 className="text-2xl font-semibold text-gray-800 animate-pulse">
+            Looking for someone...
+          </h2>
+          <div className="flex justify-center">
+            <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+          <p className="text-gray-600">We're trying to find someone for you</p>
+        </div>
+      </div>
+
+      <div className="bg-gray-50 border-t py-4">
+        <div className="max-w-4xl mx-auto px-4 text-center text-sm text-gray-500">
+          Please be polite and avoid inappropriate behavior during chat.
+        </div>
       </div>
     </div>
   );
