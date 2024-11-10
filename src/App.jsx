@@ -42,9 +42,9 @@ function App() {
       }
     };
 
-    const handleBeforeUnload = async (e) => {
+    const handleBeforeUnload = (e) => {
       e.preventDefault();
-      await cleanup();
+      cleanup();
     };
 
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
