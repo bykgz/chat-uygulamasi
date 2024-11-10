@@ -1,3 +1,4 @@
 [build]
+  base = "chat-uygulamasi"
   command = "CI=false npm run build"
-  publish = "build" 
+  publish = "build"
