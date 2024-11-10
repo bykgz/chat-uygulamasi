@@ -18,77 +18,50 @@ const WaitingRoom = ({ user, onMatch }) => {
     if (!user) return;
 
     // Kullanıcıyı waiting room'a ekle
-    const addToWaitingRoom = async () => {
-      const waitingRef = doc(db, "waitingRoom", user.uid);
-      await setDoc(waitingRef, {
-        userId: user.uid,
-        displayName: user.displayName || "Anonymous",
-        timestamp: Date.now(),
-        matched: false,
-      });
-    };
+    const waitingRef = doc(db, "waitingRoom", user.uid);
+    setDoc(waitingRef, {
+      userId: user.uid,
+      displayName: user.displayName || "Anonymous",
+      timestamp: Date.now(),
+    });
 
-    // Eşleştirme kontrolü
-    const checkForMatch = () => {
-      const waitingRoomRef = collection(db, "waitingRoom");
-      const q = query(
-        waitingRoomRef,
-        where("matched", "==", false),
-        where("userId", "!=", user.uid)
-      );
+    // Diğer kullanıcıları dinle
+    const waitingRoomRef = collection(db, "waitingRoom");
+    const q = query(waitingRoomRef);
 
-      return onSnapshot(q, async (snapshot) => {
-        const waitingUsers = snapshot.docs.map((doc) => ({
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const waitingUsers = snapshot.docs
+        .map((doc) => ({
           ...doc.data(),
           id: doc.id,
-        }));
+        }))
+        .filter((u) => u.userId !== user.uid);
 
-        if (waitingUsers.length > 0) {
-          const partner = waitingUsers[0];
-          const chatId = [user.uid, partner.userId].sort().join("-");
+      if (waitingUsers.length > 0) {
+        const partner = waitingUsers[0];
+        const chatId = [user.uid, partner.userId].sort().join("-");
 
-          try {
-            // Partner'ı matched olarak işaretle
-            await setDoc(
-              doc(db, "waitingRoom", partner.id),
-              { matched: true },
-              { merge: true }
-            );
+        try {
+          // Chat oluştur
+          await setDoc(doc(db, "chats", chatId), {
+            users: [user.uid, partner.userId],
+            createdAt: Date.now(),
+          });
 
-            // Chat oluştur
-            await setDoc(doc(db, "chats", chatId), {
-              users: [user.uid, partner.userId],
-              createdAt: Date.now(),
-            });
+          // Kullanıcıları waiting room'dan sil
+          await deleteDoc(doc(db, "waitingRoom", user.uid));
+          await deleteDoc(doc(db, "waitingRoom", partner.id));
 
-            // Kullanıcıları waiting room'dan sil
-            await deleteDoc(doc(db, "waitingRoom", user.uid));
-            await deleteDoc(doc(db, "waitingRoom", partner.id));
-
-            onMatch(chatId, partner.userId);
-          } catch (error) {
-            console.error("Matching error:", error);
-          }
+          onMatch(chatId, partner.userId);
+        } catch (error) {
+          console.error("Matching error:", error);
         }
-      });
-    };
-
-    // İşlemleri başlat
-    const timeout = setTimeout(() => {
-      addToWaitingRoom().then(() => {
-        const unsubscribe = checkForMatch();
-        return () => {
-          unsubscribe();
-          deleteDoc(doc(db, "waitingRoom", user.uid));
-        };
-      });
-    }, 1000);
+      }
+    });
 
     return () => {
-      clearTimeout(timeout);
-      if (user?.uid) {
-        deleteDoc(doc(db, "waitingRoom", user.uid));
-      }
+      unsubscribe();
+      deleteDoc(doc(db, "waitingRoom", user.uid));
     };
   }, [user, onMatch]);
 
