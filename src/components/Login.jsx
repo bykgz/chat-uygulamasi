@@ -9,6 +9,7 @@ import {
   getDocs,
   deleteDoc,
   doc,
+  setDoc,
 } from "firebase/firestore";
 
 const Login = () => {

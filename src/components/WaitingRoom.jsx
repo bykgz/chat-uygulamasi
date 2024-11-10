@@ -33,8 +33,8 @@ const WaitingRoom = ({ user, onMatch }) => {
       const waitingRoomRef = collection(db, "waitingRoom");
       const q = query(
         waitingRoomRef,
-        where("userId", "!=", user.uid),
-        where("matched", "==", false)
+        where("matched", "==", false),
+        where("userId", "!=", user.uid)
       );
 
       return onSnapshot(q, async (snapshot) => {

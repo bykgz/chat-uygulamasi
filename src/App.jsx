@@ -42,8 +42,9 @@ function App() {
       }
     };
 
-    const handleBeforeUnload = () => {
-      cleanup();
+    const handleBeforeUnload = async (e) => {
+      e.preventDefault();
+      await cleanup();
     };
 
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
